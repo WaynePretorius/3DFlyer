@@ -24,6 +24,7 @@ public class Rocket : MonoBehaviour
     private AudioSource shipAudio;
 
     private bool audioIsPlaying = false;
+    [SerializeField]private bool isColliding = true;
     private State state = State.Alive;
 
     private void Awake()
@@ -41,7 +42,35 @@ public class Rocket : MonoBehaviour
     void Update()
     {
         CheckIfAlive();
+        if (Debug.isDebugBuild)
+        {
+            DebugKeys();
+        }
     }
+
+    private void DebugKeys()
+    {
+        if (Input.GetKeyDown(KeyCode.L))
+        {
+            GetAndRunNextScene();
+        }
+
+        if (Input.GetKey(KeyCode.C))
+        {
+            isColliding = !isColliding;
+        }
+    }
+
+    private void CheckIfAlive()
+    {
+        if (state == State.Alive)
+        {
+            Thrust();
+            RotateShip();
+            PlayAudio();
+        }
+    }
+
 
     private void Thrust()
     {
@@ -66,7 +95,7 @@ public class Rocket : MonoBehaviour
 
     private void RotateShip()
     {
-        myBody.freezeRotation = true;
+        myBody.angularVelocity = Vector3.zero;
 
         float rotationThrust = rotationSpeed * Time.deltaTime;
 
@@ -79,7 +108,7 @@ public class Rocket : MonoBehaviour
             transform.Rotate(-Vector3.forward * rotationThrust);
         }
 
-        myBody.freezeRotation = false;
+
     }
 
     private void PlayAudio()
@@ -130,15 +159,27 @@ public class Rocket : MonoBehaviour
 
     private void PlayerDiedOnCollisions()
     {
+        if (!isColliding) { return; }
         state = State.Dying;
         shipAudio.PlayOneShot(playerDeath);
         deathExplosion.Play();
         Invoke(Tags.METHOD_RESTART, timeToNextScene);
     }
 
-    private void LoadNextScene()
+    private void GetAndRunNextScene()
     {
-        SceneManager.LoadScene(1);
+        int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
+        int nextSceneIndex = currentSceneIndex + 1;
+        int lastSceneIndex = SceneManager.sceneCountInBuildSettings;
+        
+        if (nextSceneIndex >= lastSceneIndex)
+        {
+            Restart();
+        }
+        else
+        {
+            SceneManager.LoadScene(nextSceneIndex);
+        }
     }
 
     private void Restart()
@@ -146,13 +187,4 @@ public class Rocket : MonoBehaviour
         SceneManager.LoadScene(0);
     }
 
-    private void CheckIfAlive()
-    {
-        if(state == State.Alive)
-        {
-            Thrust();
-            RotateShip();
-            PlayAudio();
-        }
-    }
 }
