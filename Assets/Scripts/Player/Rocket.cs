@@ -1,14 +1,11 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using System.Security;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 public class Rocket : MonoBehaviour
 {
     enum State { Alive, Dying, Transcending}
-
 
     [SerializeField] private float thrustSpeed = 100f;
     [SerializeField] private float rotationSpeed = 100f;
@@ -22,9 +19,11 @@ public class Rocket : MonoBehaviour
 
     private Rigidbody myBody;
     private AudioSource shipAudio;
+    private LevelManager levelManager;
 
     private bool audioIsPlaying = false;
-    [SerializeField]private bool isColliding = true;
+    private bool isColliding = true;
+   
     private State state = State.Alive;
 
     private void Awake()
@@ -36,12 +35,13 @@ public class Rocket : MonoBehaviour
     {
         myBody = GetComponent<Rigidbody>();
         shipAudio = GetComponent<AudioSource>();
+        levelManager = FindObjectOfType<LevelManager>();
     }
 
     // Update is called once per frame
     void Update()
     {
-        CheckIfAlive();
+        Move();
         if (Debug.isDebugBuild)
         {
             DebugKeys();
@@ -52,16 +52,16 @@ public class Rocket : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.L))
         {
-            GetAndRunNextScene();
+            levelManager.LoadGetNextScene();
         }
 
-        if (Input.GetKey(KeyCode.C))
+        if (Input.GetKeyDown(KeyCode.C))
         {
             isColliding = !isColliding;
         }
     }
 
-    private void CheckIfAlive()
+    private void Move()
     {
         if (state == State.Alive)
         {
@@ -70,7 +70,6 @@ public class Rocket : MonoBehaviour
             PlayAudio();
         }
     }
-
 
     private void Thrust()
     {
@@ -81,6 +80,11 @@ public class Rocket : MonoBehaviour
             myBody.AddRelativeForce(Vector3.up * thrustBoost);
         }
 
+        ShipFX();
+    }
+
+    private void ShipFX()
+    {
         if (Input.GetKeyDown(KeyCode.Space))
         {
             audioIsPlaying = true;
@@ -107,8 +111,6 @@ public class Rocket : MonoBehaviour
         {
             transform.Rotate(-Vector3.forward * rotationThrust);
         }
-
-
     }
 
     private void PlayAudio()
@@ -128,63 +130,42 @@ public class Rocket : MonoBehaviour
 
     private void OnCollisionEnter(Collision other)
     {
-        if (state != State.Alive) { return; }
-
-        LoofForCollission(other);
+        if (state != State.Alive || !isColliding) { return; }
+        LookForCollission(other);
     }
 
-    private void LoofForCollission(Collision other)
+    private void LookForCollission(Collision other)
     {
         if (other.gameObject.tag == Tags.TAG_FRIENDLY)
         {
-            Debug.Log("OK");
+            Debug.Log("OK");//Pickups
         }
         else if (other.gameObject.tag == Tags.TAG_FINISH)
         {
-            FinishLevelDetector();
+            StartCoroutine(FinishLevelDetector());
         }
         else
         {
-            PlayerDiedOnCollisions();
+            StartCoroutine(PlayerDiedOnCollisions());
         }
     }
 
-    private void FinishLevelDetector()
+    private IEnumerator FinishLevelDetector()
     {
         state = State.Transcending;
         shipAudio.PlayOneShot(levelFinish);
         levelSuccess.Play();
-        Invoke(Tags.METHOD_NEXTSCENE, timeToNextScene);
+        yield return new WaitForSeconds(timeToNextScene);
+        levelManager.LoadGetNextScene();
     }
 
-    private void PlayerDiedOnCollisions()
+    private IEnumerator PlayerDiedOnCollisions()
     {
-        if (!isColliding) { return; }
         state = State.Dying;
         shipAudio.PlayOneShot(playerDeath);
         deathExplosion.Play();
-        Invoke(Tags.METHOD_RESTART, timeToNextScene);
-    }
-
-    private void GetAndRunNextScene()
-    {
-        int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
-        int nextSceneIndex = currentSceneIndex + 1;
-        int lastSceneIndex = SceneManager.sceneCountInBuildSettings;
-        
-        if (nextSceneIndex >= lastSceneIndex)
-        {
-            Restart();
-        }
-        else
-        {
-            SceneManager.LoadScene(nextSceneIndex);
-        }
-    }
-
-    private void Restart()
-    {
-        SceneManager.LoadScene(0);
+        yield return new WaitForSeconds(timeToNextScene);
+        levelManager.RestartLevel();
     }
 
 }

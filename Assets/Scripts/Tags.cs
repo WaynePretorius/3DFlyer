@@ -13,7 +13,4 @@ public static class Tags
     public static string STATE_DYING = "Dying";
     public static string STATE_TRANSCEND = "Transcending";
 
-    //Methods
-    public static string METHOD_NEXTSCENE = "LoadNextScene";
-    public static string METHOD_RESTART = "Restart";
 }
